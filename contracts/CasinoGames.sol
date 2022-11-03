@@ -1,10 +1,11 @@
 /**
+ * SPDX-License-Identifier: UNLICENSED
  * @title Casino Games
  * @description Games include dice and roulette
  * @dev Implement dice and roulette games
 */
 
-pragma solidity ^0.5.4;
+pragma solidity ^0.8.17;
 
 contract Dice {
     struct Bet {
@@ -25,7 +26,7 @@ contract Dice {
     event BetPlaced(uint id, address player, uint cap, uint amount);
     event Roll(uint id, uint res);
 
-    function Dice() public {
+    constructor()  {
         owner = msg.sender;
     }
 
@@ -41,17 +42,17 @@ contract Dice {
 
     function roll_dice(uint id) public {
         Bet storage bet = bets[id];
-        require(msg.sender == bet.user);
+        require(msg.sender == bet.player);
         require(block.number >= bet.block);
         require(block.number <= bet.block + 255);
 
-        bytes32 random = keccak256(block.blockhash(bet.block), id);
+        bytes32 random = keccak256(abi.encodePacked(block.blockhash(bet.block), id));
         uint res = uint(random) % MAXIMUM_CAP;
         if (res < bet.cap) {
             uint payout = bet.amount * MAXIMUM_CAP / bet.cap;
             uint fee = payout * FEE_NUMERATOR / FEE_DENOMINATOR;
             payout -= fee;
-            msg.sender.transfer(payout);
+            payable(msg.sender).transfer(payout);
         }
 
         Roll(id, res);
@@ -59,11 +60,6 @@ contract Dice {
     }
 
     function fund () payable public {}
-
-    function kill () public {
-        require(msg.sender == owner);
-        selfdestruct(owner);
-    }
 }
 
 contract Roulette {
@@ -101,7 +97,7 @@ contract Roulette {
     event BetPlaced(address player, uint amount, BetType betType, uint block, int choice);
     event Spin(uint id, int res);
 
-    function Roulette() public {
+    function Dice() pubic {
         owner = msg.sender;
         for(uint i = 0; i < 18; i++) {
             COLORS[RED_NUMBERS[i]] = 1;
@@ -124,7 +120,7 @@ contract Roulette {
 
     function spin (uint id) public {
         Bet storage bet = bets[id];
-        require(msg.sender == bet.user);
+        require(msg.sender == bet.player);
         require(block.number >= bet.block);
         require(block.number <= bet.block + 255);
 
@@ -133,11 +129,11 @@ contract Roulette {
 
         if (bet.betType == BetType.Color) {
             if (res > 0 && COLORS[res] == bet.choice) {
-                msg.sender.transfer(bet.amount * 2);
+                payable(msg.sender).transfer(bet.amount * 2);
             }
         } else if (bet.betType == BetType.Color) {
             if (res == bet.choice) {
-                msg.sender.transfer(bet.amount * 35);
+                payable(msg.sender).transfer(bet.amount * 35);
             }
         }
         delete bets[id];
@@ -146,8 +142,4 @@ contract Roulette {
 
     function fund () public payable {}
 
-    function kill () public {
-        require(msg.sender == owner);
-        selfdestruct(owner);
-    }
 }
